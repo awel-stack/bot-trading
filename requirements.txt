@@ -1,2 +1,4 @@
-streamlit
+ccxt
 pandas
+python-dotenv
+joblib

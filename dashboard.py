@@ -4,6 +4,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import json
 import time
+from streamlit_autorefresh import st_autorefresh
 
 st.set_page_config(page_title='Bot Trading Dashboard', layout='wide')
 st.title("📈 Dashboard del Bot de Trading en Vivo")
@@ -47,6 +48,5 @@ if not df.empty:
 
 # Refrescar automáticamente
 st.caption("Este panel se actualiza automáticamente cada 10 segundos.")
-time.sleep(10)
-st.experimental_rerun()
+st_autorefresh(interval=10 * 1000, key="auto-refresh")
 

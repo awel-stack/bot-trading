@@ -2,3 +2,4 @@ ccxt
 pandas
 python-dotenv
 joblib
+scikit-learn

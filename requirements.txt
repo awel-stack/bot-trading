@@ -3,3 +3,5 @@ pandas
 python-dotenv
 joblib
 scikit-learn
+gspread
+oauth2client

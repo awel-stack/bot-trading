@@ -3,17 +3,17 @@ import pandas as pd
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import json
-import os
 import time
 
 st.set_page_config(page_title='Bot Trading Dashboard', layout='wide')
 st.title("📈 Dashboard del Bot de Trading en Vivo")
 
-# Configurar conexión a Google Sheets
+# Configurar conexión a Google Sheets desde st.secrets
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = ServiceAccountCredentials.from_json_keyfile_dict(json.loads(os.getenv("GOOGLE_CREDENTIALS")), scope)
+google_creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"])
+creds = ServiceAccountCredentials.from_json_keyfile_dict(google_creds_dict, scope)
 client = gspread.authorize(creds)
-sheet = client.open_by_key("1Otzxl7E7RKA0PGEvcpUPD3Tj1E60H_aNbiu_Oe4Hlj0").sheet1  # Reemplaza con tu Sheet ID
+sheet = client.open_by_key("1Otzxl7E7RKA0PGEvcpUPD3Tj1E60H_aNbiu_Oe4Hlj0").sheet1  # Tu Sheet ID
 
 # Leer los datos desde Google Sheets
 def cargar_datos():
@@ -22,7 +22,8 @@ def cargar_datos():
         df = pd.DataFrame(registros)
         df['fecha'] = pd.to_datetime(df['fecha'])
         return df
-    except:
+    except Exception as e:
+        st.error(f"Error cargando datos: {e}")
         return pd.DataFrame(columns=["fecha", "accion", "probabilidad", "precio", "pnl", "resultado", "motivo"])
 
 df = cargar_datos()
@@ -48,3 +49,4 @@ if not df.empty:
 st.caption("Este panel se actualiza automáticamente cada 10 segundos.")
 time.sleep(10)
 st.experimental_rerun()
+

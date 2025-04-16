@@ -22,7 +22,8 @@ def cargar_datos():
     try:
         registros = sheet.get_all_records()
         df = pd.DataFrame(registros)
-        df.columns = df.columns.astype(str).str.strip()  # Limpiar encabezados
+        df.columns = df.columns.astype(str).str.strip() # Limpiar encabezados
+        print("Columnas recibidas:", df.columns.tolist())  
         df['fecha'] = pd.to_datetime(df['fecha'])
         return df
     except Exception as e:

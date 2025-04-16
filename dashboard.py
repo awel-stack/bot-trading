@@ -21,7 +21,12 @@ def cargar_datos():
     try:
         registros = sheet.get_all_records()
         df = pd.DataFrame(registros)
-        df['fecha'] = pd.to_datetime(df['fecha'])
+
+# Limpiar nombres de columnas
+df.columns = df.columns.str.strip()
+
+# Convertir 'fecha' a datetime
+df['fecha'] = pd.to_datetime(df['fecha'])
         return df
     except Exception as e:
         st.error(f"Error cargando datos: {e}")

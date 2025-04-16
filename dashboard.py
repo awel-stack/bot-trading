@@ -4,6 +4,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import json
 import time
+import matplotlib.pyplot as plt
 from streamlit_autorefresh import st_autorefresh
 
 st.set_page_config(page_title='Bot Trading Dashboard', layout='wide')
@@ -21,12 +22,8 @@ def cargar_datos():
     try:
         registros = sheet.get_all_records()
         df = pd.DataFrame(registros)
-
-# Limpiar nombres de columnas
-df.columns = df.columns.str.strip()
-
-# Convertir 'fecha' a datetime
-df['fecha'] = pd.to_datetime(df['fecha'])
+        df.columns = df.columns.str.strip()  # Limpiar encabezados
+        df['fecha'] = pd.to_datetime(df['fecha'])
         return df
     except Exception as e:
         st.error(f"Error cargando datos: {e}")
@@ -35,11 +32,18 @@ df['fecha'] = pd.to_datetime(df['fecha'])
 df = cargar_datos()
 
 # Métricas principales
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4, col5 = st.columns(5)
 col1.metric("Total de decisiones", len(df))
 col2.metric("Operaciones BUY", (df['accion'] == 'buy').sum())
 col3.metric("Operaciones SELL", (df['accion'] == 'sell').sum())
 col4.metric("Operaciones HOLD", (df['accion'] == 'hold').sum())
+
+# Nueva métrica: efectividad del bot
+if 'resultado' in df.columns and not df['resultado'].isnull().all():
+    total_validas = df['resultado'].isin(['ganancia', 'pérdida']).sum()
+    aciertos = (df['resultado'] == 'ganancia').sum()
+    efectividad = (aciertos / total_validas * 100) if total_validas > 0 else 0
+    col5.metric("🎯 Efectividad del Bot", f"{efectividad:.1f}%")
 
 # Tabla con historial
 st.subheader("📋 Historial de decisiones")
@@ -51,7 +55,21 @@ if not df.empty:
     chart_data = df.groupby(df['fecha'].dt.floor('H'))['accion'].value_counts().unstack().fillna(0)
     st.line_chart(chart_data)
 
+# Gráfico de pastel: Ganancia vs Pérdida
+if 'resultado' in df.columns and not df['resultado'].isnull().all():
+    st.subheader("🥧 Distribución de resultados")
+    resultado_counts = df['resultado'].value_counts()
+    fig, ax = plt.subplots()
+    ax.pie(
+        resultado_counts.values,
+        labels=resultado_counts.index,
+        autopct='%1.1f%%',
+        startangle=90,
+        wedgeprops={'edgecolor': 'white'}
+    )
+    ax.axis('equal')
+    st.pyplot(fig)
+
 # Refrescar automáticamente
 st.caption("Este panel se actualiza automáticamente cada 10 segundos.")
 st_autorefresh(interval=10 * 1000, key="auto-refresh")
-

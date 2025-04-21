@@ -21,14 +21,8 @@ sheet = client.open_by_key("1FN3NhAO2DO6Lg5f-OMJ8inOcua2K-Zu1LVQihPXlKls").sheet
 def cargar_datos():
     try:
         registros = sheet.get_all_records()
-
-        # 🚨 Mostrar los registros crudos traídos de Google Sheets
-        st.subheader("🛠 Datos crudos desde Google Sheets")
-        st.write(registros)  # <--- Aquí vemos qué trae exactamente
-
         df = pd.DataFrame(registros)
         df.columns = df.columns.astype(str).str.strip().str.lower()
-        st.write("🧪 Columnas recibidas:", df.columns.tolist())
 
         if 'fecha' not in df.columns:
             raise KeyError("La columna 'fecha' no está presente en el archivo de Google Sheets.")

@@ -15,11 +15,13 @@ load_dotenv()
 # Cargar el modelo de IA
 modelo = joblib.load("modelo_ia.pkl")
 
-# Conectar con Binance
-exchange = ccxt.binance({
-    'apiKey': os.getenv('API_KEY'),
-    'secret': os.getenv('API_SECRET'),
-    'enableRateLimit': True
+exchange = ccxt.bybit({
+    'apiKey': os.getenv('rO4Hf4hxsj2thBWxVg'),
+    'secret': os.getenv('4ahhlHTAV49OUOfv5zaG6bWLxjcwG2avcdXY'),
+    'enableRateLimit': True,
+    'options': {
+        'defaultType': 'spot'  # Usa 'future' si quieres derivados
+    }
 })
 
 # Conectarse a Google Sheets usando credenciales desde variable de entorno

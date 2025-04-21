@@ -3,50 +3,51 @@ import pandas as pd
 import joblib
 import os
 import time
-from dotenv import load_dotenv
-from datetime import datetime
 import json
 import gspread
+from datetime import datetime
 from oauth2client.service_account import ServiceAccountCredentials
+from dotenv import load_dotenv
 
-# Cargar archivo .env con las claves API
+# Cargar variables de entorno
 load_dotenv()
 
-# Cargar el modelo de IA
-modelo = joblib.load("modelo_ia.pkl")
+# =========================
+# CONEXIÓN A GOOGLE SHEETS
+# =========================
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+creds_dict = json.loads(os.getenv("GOOGLE_CREDENTIALS"))
+creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+client = gspread.authorize(creds)
+sheet = client.open_by_key("4ahhlHTAV49OUOfv5zaG6bWLxjcwG2avcdXY").sheet1
 
+# =========================
+# CONEXIÓN A BYBIT (Paper Trading con CCXT)
+# =========================
 exchange = ccxt.bybit({
-    'apiKey': os.getenv('rO4Hf4hxsj2thBWxVg'),
-    'secret': os.getenv('4ahhlHTAV49OUOfv5zaG6bWLxjcwG2avcdXY'),
+    'apiKey': os.getenv("rO4Hf4hxsj2thBWxVg"),
+    'secret': os.getenv("API_SECRET"),
     'enableRateLimit': True,
     'options': {
-        'defaultType': 'spot'  # Usa 'future' si quieres derivados
+        'defaultType': 'future'  # o 'spot' si prefieres
     }
 })
 
-# Conectarse a Google Sheets usando credenciales desde variable de entorno
-def conectar_sheet():
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    google_creds_dict = json.loads(os.getenv("GOOGLE_CREDENTIALS"))
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(google_creds_dict, scope)
-    client = gspread.authorize(creds)
-    sheet = client.open_by_key("1Otzxl7E7RKA0PGEvcpUPD3Tj1E60H_aNbiu_Oe4Hlj0").sheet1  # <--- Reemplaza con tu ID real
-    return sheet
+# =========================
+# CARGAR MODELO DE IA
+# =========================
+modelo = joblib.load("modelo_ia.pkl")
 
-# Registrar operación en Google Sheets
-def registrar_operacion(fecha, accion, prob, precio, motivo):
-    sheet = conectar_sheet()
-    nueva_fila = [fecha, accion, round(prob, 4), round(precio, 2), "", "", motivo]
-    sheet.append_row(nueva_fila)
-
-# Obtener datos en vivo de Binance
+# =========================
+# FUNCIÓN: OBTENER DATOS DE MERCADO
+# =========================
 def obtener_datos():
     velas = exchange.fetch_ohlcv('BTC/USDT', timeframe='1h', limit=200)
     df = pd.DataFrame(velas, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     df['ema50'] = df['close'].ewm(span=50).mean()
     df['ema200'] = df['close'].ewm(span=200).mean()
 
-    # RSI manual
+    # RSI
     delta = df['close'].diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
@@ -62,7 +63,9 @@ def obtener_datos():
 
     return df.dropna()
 
-# Tomar decisión con IA
+# =========================
+# FUNCIÓN: TOMAR DECISIÓN
+# =========================
 def tomar_decision(df):
     ultima = df.iloc[-1]
     X = pd.DataFrame([{
@@ -72,38 +75,43 @@ def tomar_decision(df):
         'macd': ultima['macd']
     }])
     prob = modelo.predict_proba(X)[0][1]
-    print(f"📊 Probabilidad de que suba: {prob:.2f}")
 
     if ultima['ema50'] > ultima['ema200'] and prob > 0.7:
-        return "buy", prob, ultima['close'], "Cruce alcista + alta probabilidad"
+        return "buy", prob, "Cruce EMA + IA alta"
     elif ultima['ema50'] < ultima['ema200'] and prob > 0.7:
-        return "sell", prob, ultima['close'], "Cruce bajista + alta probabilidad"
-    return "hold", prob, ultima['close'], "Condiciones no favorables"
+        return "sell", prob, "Cruce EMA negativo + IA alta"
+    else:
+        return "hold", prob, "Condición neutral"
 
-# Simular orden
-def ejecutar_orden(tipo):
-    monto = 0.001  # simulación, no es real
-    if tipo == "buy":
-        print(f"🟢 [SIMULACIÓN] Habríamos comprado {monto} BTC ✅")
-    elif tipo == "sell":
-        print(f"🔴 [SIMULACIÓN] Habríamos vendido {monto} BTC ✅")
+# =========================
+# FUNCIÓN: REGISTRAR EN GOOGLE SHEETS
+# =========================
+def registrar_decision(fecha, accion, probabilidad, precio, motivo):
+    fila = [fecha, accion, round(probabilidad, 4), precio, "", "", motivo]
+    sheet.append_row(fila)
 
-# Bucle principal del bot
+# =========================
+# LOOP PRINCIPAL DEL BOT
+# =========================
 while True:
     try:
         print(f"\n🕒 Análisis iniciado: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print("🔍 Analizando el mercado...")
         df = obtener_datos()
-        decision, prob, precio, motivo = tomar_decision(df)
+        decision, prob, motivo = tomar_decision(df)
+        precio_actual = df.iloc[-1]['close']
 
-        if decision != "hold":
-            ejecutar_orden(decision)
-            registrar_operacion(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), decision, prob, precio, motivo)
-        else:
-            print("⏸️ No se ejecutó ninguna orden. Se decidió HOLD.")
+        print(f"📊 Decisión del bot: {decision.upper()} con probabilidad {prob:.2f}")
+        registrar_decision(
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            decision,
+            prob,
+            precio_actual,
+            motivo
+        )
 
     except Exception as e:
         print(f"⚠️ Error: {e}")
 
     print("⏱️ Esperando 10 minutos para nueva señal...\n")
-    time.sleep(600)  # 600 segundos = 10 minutos
+    time.sleep(600)
+

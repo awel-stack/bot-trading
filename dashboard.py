@@ -21,22 +21,19 @@ sheet = client.open_by_key("1Otzxl7E7RKA0PGEvcpUPD3Tj1E60H_aNbiu_Oe4Hlj0").sheet
 def cargar_datos():
     try:
         registros = sheet.get_all_records()
+
+        # 🚨 Mostrar los registros crudos traídos de Google Sheets
+        st.subheader("🛠 Datos crudos desde Google Sheets")
+        st.write(registros)  # <--- Aquí vemos qué trae exactamente
+
         df = pd.DataFrame(registros)
-
-        # Limpiar nombres de columnas
         df.columns = df.columns.astype(str).str.strip().str.lower()
+        st.write("🧪 Columnas recibidas:", df.columns.tolist())
 
-        # Mostrar columnas en el dashboard
-        st.write("Columnas recibidas:", df.columns.tolist())
-
-        # Verificar si 'fecha' existe
         if 'fecha' not in df.columns:
             raise KeyError("La columna 'fecha' no está presente en el archivo de Google Sheets.")
 
-        # Convertir a datetime con manejo de errores
         df['fecha'] = pd.to_datetime(df['fecha'], errors='coerce')
-
-        # Filtrar filas con fechas válidas
         df = df[df['fecha'].notnull()]
 
         return df

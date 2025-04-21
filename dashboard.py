@@ -15,7 +15,7 @@ scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/au
 google_creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"])
 creds = ServiceAccountCredentials.from_json_keyfile_dict(google_creds_dict, scope)
 client = gspread.authorize(creds)
-sheet = client.open_by_key("14HbQAfNVzv7iwuiNRvf48YBlxbg92O2wawGrgD8zs60").worksheet("Datos Bot")  # Tu Sheet ID
+sheet = client.open_by_key("1FN3NhAO2DO6Lg5f-OMJ8inOcua2K-Zu1LVQihPXlKls").sheet1  # Tu Sheet ID
 
 # Leer los datos desde Google Sheets
 def cargar_datos():

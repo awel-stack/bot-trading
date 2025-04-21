@@ -26,7 +26,7 @@ sheet = client.open_by_key("4ahhlHTAV49OUOfv5zaG6bWLxjcwG2avcdXY").sheet1
 # =========================
 exchange = ccxt.bybit({
     'apiKey': os.getenv("rO4Hf4hxsj2thBWxVg"),
-    'secret': os.getenv("API_SECRET"),
+    'secret': os.getenv("4ahhlHTAV49OUOfv5zaG6bWLxjcwG2avcdXY"),
     'enableRateLimit': True,
     'options': {
         'defaultType': 'future'  # o 'spot' si prefieres

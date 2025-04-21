@@ -22,10 +22,25 @@ def cargar_datos():
     try:
         registros = sheet.get_all_records()
         df = pd.DataFrame(registros)
-        df.columns = df.columns.astype(str).str.strip() # Limpiar encabezados
-        print("Columnas recibidas:", df.columns.tolist()) 
-        df['fecha'] = pd.to_datetime(df['fecha'])
+
+        # Limpiar nombres de columnas
+        df.columns = df.columns.astype(str).str.strip().str.lower()
+
+        # Mostrar columnas en el dashboard
+        st.write("Columnas recibidas:", df.columns.tolist())
+
+        # Verificar si 'fecha' existe
+        if 'fecha' not in df.columns:
+            raise KeyError("La columna 'fecha' no está presente en el archivo de Google Sheets.")
+
+        # Convertir a datetime con manejo de errores
+        df['fecha'] = pd.to_datetime(df['fecha'], errors='coerce')
+
+        # Filtrar filas con fechas válidas
+        df = df[df['fecha'].notnull()]
+
         return df
+
     except Exception as e:
         st.error(f"Error cargando datos: {e}")
         return pd.DataFrame(columns=["fecha", "accion", "probabilidad", "precio", "pnl", "resultado", "motivo"])
@@ -74,3 +89,4 @@ if 'resultado' in df.columns and not df['resultado'].isnull().all():
 # Refrescar automáticamente
 st.caption("Este panel se actualiza automáticamente cada 10 segundos.")
 st_autorefresh(interval=10 * 1000, key="auto-refresh")
+

@@ -19,7 +19,7 @@ scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/au
 creds_dict = json.loads(os.getenv("GOOGLE_CREDENTIALS"))
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
-sheet = client.open_by_key("4ahhlHTAV49OUOfv5zaG6bWLxjcwG2avcdXY").sheet1
+sheet = client.open_by_key("41FN3NhAO2DO6Lg5f-OMJ8inOcua2K-Zu1LVQihPXlKls").sheet1
 
 # =========================
 # CONEXIÓN A BYBIT (Paper Trading con CCXT)

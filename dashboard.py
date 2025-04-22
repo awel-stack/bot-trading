@@ -3,7 +3,6 @@ import pandas as pd
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import json
-import time
 import matplotlib.pyplot as plt
 from streamlit_autorefresh import st_autorefresh
 
@@ -17,7 +16,8 @@ creds = ServiceAccountCredentials.from_json_keyfile_dict(google_creds_dict, scop
 client = gspread.authorize(creds)
 sheet = client.open_by_key("1FN3NhAO2DO6Lg5f-OMJ8inOcua2K-Zu1LVQihPXlKls").sheet1  # Tu Sheet ID
 
-# Leer los datos desde Google Sheets
+# Leer los datos desde Google Sheets (con caché de 60 segundos)
+@st.cache_data(ttl=60)
 def cargar_datos():
     try:
         registros = sheet.get_all_records()
@@ -59,7 +59,7 @@ st.dataframe(df.sort_values("fecha", ascending=False), use_container_width=True)
 # Gráfica de acciones a lo largo del tiempo
 if not df.empty:
     st.subheader("📊 Línea de tiempo de operaciones")
-    chart_data = df.groupby(df['fecha'].dt.floor('H'))['accion'].value_counts().unstack().fillna(0)
+    chart_data = df.groupby(df['fecha'].dt.floor('h'))['accion'].value_counts().unstack().fillna(0)
     st.line_chart(chart_data)
 
 # Gráfico de pastel: Ganancia vs Pérdida
@@ -77,7 +77,7 @@ if 'resultado' in df.columns and not df['resultado'].isnull().all():
     ax.axis('equal')
     st.pyplot(fig)
 
-# Refrescar automáticamente
-st.caption("Este panel se actualiza automáticamente cada 10 segundos.")
-st_autorefresh(interval=10 * 1000, key="auto-refresh")
+# Refrescar automáticamente (1 vez por minuto para evitar spam a Google Sheets)
+st.caption("Este panel se actualiza automáticamente cada 60 segundos.")
+st_autorefresh(interval=60 * 1000, key="auto-refresh")
 

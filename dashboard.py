@@ -1,83 +1,71 @@
 import streamlit as st
 import pandas as pd
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
-import json
-import matplotlib.pyplot as plt
+import psycopg2
+from sqlalchemy import create_engine
 from streamlit_autorefresh import st_autorefresh
+import matplotlib.pyplot as plt
 
-st.set_page_config(page_title='Bot Trading Dashboard', layout='wide')
-st.title("📈 Dashboard del Bot de Trading en Vivo")
+# Configuración de la página
+st.set_page_config(page_title="📊 Dashboard del Bot", layout="wide")
+st.title("🤖 Dashboard del Bot de Trading")
 
-# Configurar conexión a Google Sheets desde st.secrets
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-google_creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"])
-creds = ServiceAccountCredentials.from_json_keyfile_dict(google_creds_dict, scope)
-client = gspread.authorize(creds)
-sheet = client.open_by_key("1FN3NhAO2DO6Lg5f-OMJ8inOcua2K-Zu1LVQihPXlKls").sheet1  # Tu Sheet ID
+# Autorefresh cada minuto
+st_autorefresh(interval=60000, key="data_refresh")
 
-# Leer los datos desde Google Sheets (con caché de 60 segundos)
+# Conexión a PostgreSQL desde secrets.toml
+DATABASE_URL = st.secrets["POSTGRES_URL"]
+
+try:
+    engine = create_engine(DATABASE_URL)
+    conn = engine.connect()
+    st.write("✅ Conexión establecida con PostgreSQL")  # Temporal, para confirmar
+except Exception as e:
+    st.error(f"❌ Error de conexión a la base de datos: {e}")
+    st.stop()
+
+# Cargar datos
 @st.cache_data(ttl=60)
 def cargar_datos():
     try:
-        registros = sheet.get_all_records()
-        df = pd.DataFrame(registros)
-        df.columns = df.columns.astype(str).str.strip().str.lower()
-
-        if 'fecha' not in df.columns:
-            raise KeyError("La columna 'fecha' no está presente en el archivo de Google Sheets.")
-
-        df['fecha'] = pd.to_datetime(df['fecha'], errors='coerce')
-        df = df[df['fecha'].notnull()]
-
+        df = pd.read_sql("SELECT * FROM decisiones ORDER BY fecha DESC", conn)
+        df['fecha'] = pd.to_datetime(df['fecha'])
         return df
-
     except Exception as e:
-        st.error(f"Error cargando datos: {e}")
-        return pd.DataFrame(columns=["fecha", "accion", "probabilidad", "precio", "pnl", "resultado", "motivo"])
+        st.error(f"❌ Error al cargar datos: {e}")
+        return pd.DataFrame()
 
 df = cargar_datos()
 
-# Métricas principales
+# Métricas
 col1, col2, col3, col4, col5 = st.columns(5)
-col1.metric("Total de decisiones", len(df))
-col2.metric("Operaciones BUY", (df['accion'] == 'buy').sum())
-col3.metric("Operaciones SELL", (df['accion'] == 'sell').sum())
-col4.metric("Operaciones HOLD", (df['accion'] == 'hold').sum())
-
-# Nueva métrica: efectividad del bot
-if 'resultado' in df.columns and not df['resultado'].isnull().all():
-    total_validas = df['resultado'].isin(['ganancia', 'pérdida']).sum()
+col1.metric("Total decisiones", len(df))
+col2.metric("BUY", (df['accion'] == 'buy').sum())
+col3.metric("SELL", (df['accion'] == 'sell').sum())
+col4.metric("HOLD", (df['accion'] == 'hold').sum())
+if 'resultado' in df.columns:
     aciertos = (df['resultado'] == 'ganancia').sum()
-    efectividad = (aciertos / total_validas * 100) if total_validas > 0 else 0
-    col5.metric("🎯 Efectividad del Bot", f"{efectividad:.1f}%")
+    total_validas = df['resultado'].isin(['ganancia', 'pérdida']).sum()
+    efectividad = (aciertos / total_validas) * 100 if total_validas > 0 else 0
+    col5.metric("🎯 Efectividad", f"{efectividad:.1f}%")
 
-# Tabla con historial
+# Tabla
 st.subheader("📋 Historial de decisiones")
-st.dataframe(df.sort_values("fecha", ascending=False), use_container_width=True)
+st.dataframe(df, use_container_width=True)
 
-# Gráfica de acciones a lo largo del tiempo
+# Línea de tiempo
 if not df.empty:
-    st.subheader("📊 Línea de tiempo de operaciones")
-    chart_data = df.groupby(df['fecha'].dt.floor('h'))['accion'].value_counts().unstack().fillna(0)
-    st.line_chart(chart_data)
+    st.subheader("📈 Línea de tiempo de decisiones")
+    df_chart = df.groupby(df['fecha'].dt.floor('h'))['accion'].value_counts().unstack().fillna(0)
+    st.line_chart(df_chart)
 
-# Gráfico de pastel: Ganancia vs Pérdida
-if 'resultado' in df.columns and not df['resultado'].isnull().all():
+# Gráfico de pastel
+if 'resultado' in df.columns:
     st.subheader("🥧 Distribución de resultados")
     resultado_counts = df['resultado'].value_counts()
     fig, ax = plt.subplots()
-    ax.pie(
-        resultado_counts.values,
-        labels=resultado_counts.index,
-        autopct='%1.1f%%',
-        startangle=90,
-        wedgeprops={'edgecolor': 'white'}
-    )
-    ax.axis('equal')
+    ax.pie(resultado_counts.values, labels=resultado_counts.index, autopct='%1.1f%%', startangle=90)
+    ax.axis("equal")
     st.pyplot(fig)
 
-# Refrescar automáticamente (1 vez por minuto para evitar spam a Google Sheets)
-st.caption("Este panel se actualiza automáticamente cada 60 segundos.")
-st_autorefresh(interval=60 * 1000, key="auto-refresh")
-
+# Cierre
+conn.close()

@@ -7,27 +7,27 @@ from dotenv import load_dotenv
 import os
 from sqlalchemy import create_engine, text
 
-# Cargar variables de entorno (.env en local o Environment Variables en Render)
+# Cargar variables de entorno
 load_dotenv()
 POSTGRES_URL = os.getenv("POSTGRES_URL")
 engine = create_engine(POSTGRES_URL)
 
-# Cargar modelo entrenado
-modelo = load("modelo_ia.pkl")  # Asegúrate que este archivo esté en tu carpeta raíz
+# Cargar modelo ML
+modelo = load("modelo_entrenado.pkl")
 
-# Conexión con Bybit
+# Conectar a Bybit (futures)
 exchange = ccxt.bybit({
     "apiKey": os.getenv("BYBIT_API_KEY"),
     "secret": os.getenv("BYBIT_API_SECRET"),
     "enableRateLimit": True,
-    "options": {"defaultType": "future"},
+    "options": {"defaultType": "future"}  # Usar el mercado de futuros
 })
 
 print("\n🚀 Bot iniciado correctamente")
 
-# Obtener velas
 def obtener_datos():
-    velas = exchange.fetch_ohlcv("BTC/USDT", timeframe="5m", limit=50)
+    print("✅ Obteniendo datos de Bybit Futures...")
+    velas = exchange.fetch_ohlcv("BTC/USDT:USDT", timeframe="5m", limit=50)  # Futuros
     df = pd.DataFrame(velas, columns=["timestamp", "open", "high", "low", "close", "volume"])
     df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
     df.set_index("timestamp", inplace=True)
@@ -36,14 +36,12 @@ def obtener_datos():
     df.dropna(inplace=True)
     return df
 
-# Hacer predicción
 def hacer_prediccion(df):
     X = df[["close", "ma_20", "ma_50"]].copy()
     prediccion = modelo.predict(X.tail(1))
     probas = modelo.predict_proba(X.tail(1))
     return prediccion[0], max(probas[0])
 
-# Registrar en PostgreSQL
 def registrar_decision(accion, probabilidad, precio, motivo):
     try:
         with engine.connect() as conn:
@@ -65,7 +63,6 @@ def registrar_decision(accion, probabilidad, precio, motivo):
     except Exception as e:
         print(f"❌ Error al registrar en base de datos: {e}")
 
-# Bucle principal
 def main():
     while True:
         print("\n🕒 Análisis iniciado:", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
@@ -76,10 +73,12 @@ def main():
             registrar_decision(prediccion, probabilidad, precio_actual, "Cruce de medias móviles")
         except Exception as e:
             print("⚠️ Error en ejecución:", e)
-        time.sleep(60)
+
+        time.sleep(60)  # Esperar 1 minuto entre análisis
 
 if __name__ == "__main__":
     try:
+        print("🔐 Conectando a Bybit Futures...")
         main()
     except KeyboardInterrupt:
         print("🛑 Bot detenido manualmente")

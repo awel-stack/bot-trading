@@ -13,7 +13,7 @@ POSTGRES_URL = os.getenv("POSTGRES_URL")
 engine = create_engine(POSTGRES_URL)
 
 # Cargar modelo ML
-modelo = load("modelo_entrenado.pkl")
+modelo = load("modelo_ia.pkl")
 
 # Conectar a Bybit (futures)
 exchange = ccxt.bybit({

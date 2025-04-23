@@ -17,8 +17,8 @@ modelo = load("modelo_entrenado.pkl")
 
 # Conectar a Bybit
 exchange = ccxt.bybit({
-    "apiKey": os.getenv("rO4Hf4hxsj2thBWxVg"),
-    "secret": os.getenv("4ahhlHTAV49OUOfv5zaG6bWLxjcwG2avcdXY"),
+    "apiKey": os.getenv("BYBIT_API_KEY"),
+    "secret": os.getenv("BYBIT_API_SECRET"),
     "enableRateLimit": True,
     "options": {"defaultType": "future"}
 })
